@@ -23,3 +23,10 @@ workspace_members = ["<Other user principle names of extra users to add to the w
 > WARNING: the user running the scipt will be the owner of the created Lakehouse and Warehouse in Fabric. There is no way to change this at present and if the user becomes deactivated the SQL endpoints and shortcuts will be effected.
 >
 > Use a service principle instead to get around this. I'll be adding alternat authentication later
+
+Run `$ terraform plan` to view what will be created;
+1. Resource Group
+2. Fabric Capacity
+3. Fabric Workspace associated with capacity
+4. Raw, Enriched and Curated Lakehouses or Warehouses
+5. Member role assignments
