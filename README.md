@@ -1,6 +1,6 @@
 # Fabric Terrafrorm Example
 
-This project shows how terraform can be used to scaffold a data platform project. It uses `hashicorp/azuread`, `Azure/azapi` and `microsoft/fabric` providers to manage users, Azure resources and Fabric respectively.
+This project shows how terraform can be used to scaffold a data platform project. It uses [hashicorp/azuread](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs), [Azure/azapi](https://registry.terraform.io/providers/Azure/azapi/latest/docs), [hashicorp/azurerm](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) and [microsoft/fabric](https://registry.terraform.io/providers/microsoft/fabric/latest/docs) providers to manage users, resource groups, Fabric capacities and Fabric itself respectively.
 A nix flake is included, allowing for `nix develop` to drop in to a shell with Azure CLI and terraform ready to be used.
 
 You will need to authenticate with Azure cli as a first step with `az login`.
