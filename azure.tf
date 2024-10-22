@@ -26,3 +26,21 @@ resource "azapi_resource" "capacity" {
 data "azuread_users" "users" {
   user_principal_names = var.workspace_members
 }
+
+resource "azapi_resource_action" "start" {
+  type                   = "Microsoft.Fabric/capacities@2023-11-01"
+  resource_id            = azapi_resource.capacity.id
+  action                 = "resume"
+  response_export_values = ["*"]
+
+  count = var.enabled ? 1 : 0
+}
+
+resource "azapi_resource_action" "stop" {
+  type                   = "Microsoft.Fabric/capacities@2023-11-01"
+  resource_id            = azapi_resource.capacity.id
+  action                 = "suspend"
+  response_export_values = ["*"]
+
+  count = var.enabled ? 0 : 1
+}

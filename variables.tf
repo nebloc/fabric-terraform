@@ -40,3 +40,8 @@ variable "location" {
   type = string
 }
 
+variable "enabled" {
+  description = "Pause or resume capacity"
+  default = false
+  type = bool
+}
