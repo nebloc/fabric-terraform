@@ -42,3 +42,7 @@ resource "fabric_warehouse" "curated" {
   description = "Warehouse for modelled curated data products"
   workspace_id = fabric_workspace.workspace.id
 }
+
+output "CuratedConnectionString" {
+  value = fabric_warehouse.curated.properties.connection_string
+}
