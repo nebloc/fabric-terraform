@@ -30,3 +30,24 @@ Run `$ terraform plan` to view what will be created;
 3. Fabric Workspace associated with capacity
 4. Raw, Enriched and Curated Lakehouses or Warehouses
 5. Member role assignments
+
+## Creating a Shortcut
+
+The script `create.sh` will run terraform apply, and then use the output and az-cli to perform a [REST API call to create a shortcut](https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/create-shortcut?tabs=HTTP#code-try-0)
+
+It does this by sending the body from a file called req.json. This is ommitted from the git repo but can be created based on the following template:
+```json
+{
+  "path": "Files",
+  "name": "<shortcut_name>",
+  "target": {
+    "type": "AdlsGen2",
+    "adlsGen2": {
+      "location": "https://<storageaccount>.dfs.core.windows.net",
+      "subpath": "/<container_name>/<path>",
+      "connectionId": "<connection_id>"
+    }
+  }
+}
+```
+> The connection will need to be created in the Fabric `Manage Connections and Gateways` menu ahead of this and the connection ID captured for the request.
