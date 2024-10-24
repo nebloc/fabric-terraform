@@ -46,3 +46,11 @@ resource "fabric_warehouse" "curated" {
 output "CuratedConnectionString" {
   value = fabric_warehouse.curated.properties.connection_string
 }
+
+output "RawLakehouseID" {
+  value = fabric_lakehouse.raw.id
+}
+
+output "WorkspaceID" {
+  value = fabric_workspace.workspace.id
+}

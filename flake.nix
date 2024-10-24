@@ -20,12 +20,7 @@
     {
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [ python3 ] ++
-            (with pkgs.python3Packages; [
-              pynacl
-              libnacl
-            ]);
-          packages = with pkgs; [ terraform azure-cli ];
+          packages = with pkgs; [ terraform azure-cli dotnet-sdk_8 jq curl ];
         };
       });
 
