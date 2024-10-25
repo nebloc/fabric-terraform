@@ -1,14 +1,24 @@
-resource "azurerm_resource_group" "fabricterraform" {
-   name     = "fabricterraform-rg"
-   location = var.location
+# GET Subscription data
+data "azapi_resource_id" "subscription" {
+  type        = "Microsoft.Resources/subscriptions@2021-10-01"
+  resource_id = "/subscriptions/${var.subscription_id}"
 }
 
+# CREATE resource group in subscription
+resource "azapi_resource" "resource_group" {
+  type = "Microsoft.Resources/resourceGroups@2018-05-01"
+  name = "fabricterraform-rg"
+  location = var.location
+  parent_id = data.azapi_resource_id.subscription.id
+}
+
+# CREATE capacity in resource group
 resource "azapi_resource" "capacity" {
   type      = "Microsoft.Fabric/capacities@2023-11-01"
   name      = var.capacity_name
-  parent_id = azurerm_resource_group.fabricterraform.id
+  parent_id = azapi_resource.resource_group.id
 
-  location = azurerm_resource_group.fabricterraform.location
+  location = azapi_resource.resource_group.location
 
   body = {
     sku = {
@@ -23,10 +33,13 @@ resource "azapi_resource" "capacity" {
   }
 }
 
+# Get users  from Azure Entra ID  
 data "azuread_users" "users" {
   user_principal_names = var.workspace_members
 }
 
+
+# TODO: Solve issue of resource actions not waiting until resource is ready
 # resource "azapi_resource_action" "start" {
 #   type                   = "Microsoft.Fabric/capacities@2023-11-01"
 #   resource_id            = azapi_resource.capacity.id
