@@ -21,7 +21,15 @@ variable "administrators" {
 variable "workspace_members" {
   description = "Array of users emails to be workspace members"
   type = list(string)
+  default = []
 }
+
+variable "workspace_sp_members" {
+  description = "Array of service principles to be workspace members"
+  type = list(string)
+  default = []
+}
+
 
 variable "tenant_id" {
   description = "Tenant ID for Entra"
@@ -42,6 +50,30 @@ variable "location" {
 
 variable "enabled" {
   description = "Pause or resume capacity"
+  default = false
+  type = bool
+}
+
+variable "vault_name" {
+  description = "Azure Key Vault name (globally unique)"
+  type = string
+}
+
+variable "client_secret" {
+  description = "The client secret."
+  type        = string
+  sensitive   = true
+}
+
+variable "client_id" {
+  description = "The client id."
+  type        = string
+  sensitive   = true
+}
+
+
+variable "use_sp" {
+  description = "Use service principle for auth"
   default = false
   type = bool
 }

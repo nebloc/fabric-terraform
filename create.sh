@@ -3,7 +3,7 @@
 terraform apply
 
 
-LAKEHOUSE_ID=$(terraform output -raw RawLakehouseID)
+LAKEHOUSE_ID=$(terraform output -raw BronzeLakehouseID)
 WORKSPACE_ID=$(terraform output -raw WorkspaceID)
 TOKEN=$(az account get-access-token --scope "https://analysis.windows.net/powerbi/api/.default" | jq -r .accessToken)
 

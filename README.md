@@ -28,7 +28,7 @@ Run `$ terraform plan` to view what will be created;
 1. Resource Group
 2. Fabric Capacity
 3. Fabric Workspace associated with capacity
-4. Raw, Enriched and Curated Lakehouses or Warehouses
+4. Bronze, Silver and Gold Lakehouses or Warehouses
 5. Member role assignments
 
 ## Creating a Shortcut

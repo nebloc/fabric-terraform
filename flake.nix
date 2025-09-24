@@ -21,6 +21,7 @@
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [ terraform azure-cli dotnet-sdk_8 jq curl ];
+	  # TODO: define a shell hook to print current az login
         };
       });
 

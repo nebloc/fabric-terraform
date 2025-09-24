@@ -3,7 +3,7 @@ terraform {
   required_providers {
     fabric = {
       source  = "microsoft/fabric"
-      version = "0.1.0-beta.4"
+      version = "1.6.0"
     }
     azapi = {
       source = "Azure/azapi"
@@ -19,6 +19,10 @@ terraform {
 # Configure the Microsoft Fabric Terraform Provider
 provider "fabric" {
   # Configuration options
+  tenant_id     = var.use_sp ? var.tenant_id : null
+  client_id     = var.use_sp ? var.client_id : null
+  client_secret = var.use_sp ? var.client_secret : null
+  preview       = true
 }
 
 provider "azuread" {
