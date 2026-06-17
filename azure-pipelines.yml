@@ -87,12 +87,16 @@ stages:
               script: |
                 set -euo pipefail
 
+                echo "Moving"
+
                 cd "$(terraformWorkingDirectory)"
+
+                echo "Fmt - check "
 
                 terraform fmt -check -recursive
 
-                echo "Ben was here"
-                
+                echo "Initialise backend"
+
                 terraform init -input=false \
                   -backend-config="resource_group_name=$(backendResourceGroup)" \
                   -backend-config="storage_account_name=$(backendStorageAccount)" \
