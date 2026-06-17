@@ -26,6 +26,8 @@ variables:
     value: '1.9.8'
   - name: terraformWorkingDirectory
     value: '$(System.DefaultWorkingDirectory)'
+  - name: environmentName
+    value: 'fabric'
 
   # ---- Terraform state backend (Azure Storage) ----
   - name: backendResourceGroup
@@ -189,6 +191,7 @@ stages:
     jobs:
       - deployment: Apply
         displayName: 'Apply Terraform to production'
+        environment: '$(environmentName)'
         strategy:
           runOnce:
             deploy:
