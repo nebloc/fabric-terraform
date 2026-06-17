@@ -1,29 +1,25 @@
+
 {
-  description = "A very basic flake";
+  description = "A terraform deployment environment with Azure CLI";
 
   inputs = {
-    nixpkgs = {
-      url = "github:nixos/nixpkgs?ref=nixos-24.05";
-    };
+    nixpkgs.url = "nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs }:
-    let
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
-        pkgs = import nixpkgs {
-         inherit system;
-         config.allowUnfree = true;
-        };
-      });
-    in
-    {
-      devShells = forEachSupportedSystem ({ pkgs }: {
-        default = pkgs.mkShell {
-          packages = with pkgs; [ terraform azure-cli dotnet-sdk_8 jq curl ];
-	  # TODO: define a shell hook to print current az login
-        };
-      });
+  outputs = { self, nixpkgs, ... }: let
+    system = "x86_64-linux"; # Change to your system if needed
+    pkgs = import nixpkgs {
+      config.allowUnfree = true; # Allow unfree packages if needed
+      inherit system;
+    };
+  in {
+    devShells.${system}.default = pkgs.mkShell {
+      buildInputs = with pkgs; [
+        terraform
+        azure-cli
+      ];
 
+      shellHook = '''';
+    };
   };
 }

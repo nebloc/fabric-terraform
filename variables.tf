@@ -1,79 +1,95 @@
-variable "workspace_display_name" {
-  description = "A name for the getting started workspace."
+variable "workspace_name_prefix" {
+  description = "A name for the workspaces to be suffixed with environment."
   type        = string
 }
 
 variable "capacity_name" {
   description = "The name of the capacity to use."
-  type = string
+  type        = string
+}
+
+variable "resource_group_name" {
+  description = "The name of the resource group to create or use."
+  type        = string
 }
 
 variable "subscription_id" {
   description = "The id of the Azure Subscription"
-  type = string
+  type        = string
 }
 
 variable "administrators" {
   description = "Array list of capacity admin emails"
-  type = list(string) 
+  type        = list(string)
 }
 
-variable "workspace_members" {
-  description = "Array of users emails to be workspace members"
-  type = list(string)
-  default = []
-}
-
-variable "workspace_sp_members" {
-  description = "Array of service principles to be workspace members"
-  type = list(string)
-  default = []
+variable "workspace_admins" {
+  description = "Array of emails to be workspace admins"
+  type        = list(string)
+  default     = []
 }
 
 
 variable "tenant_id" {
   description = "Tenant ID for Entra"
-  type = string
+  type        = string
 }
 
 variable "fabric_tier" {
   description = "The tier of Fabric Capacity, i.e. F2, F4"
-  default = "F2"
-  type = string
+  default     = "F2"
+  type        = string
 }
 
 variable "location" {
-  description = "Azure region"
-  default = "uk south"
-  type = string
-}
-
-variable "enabled" {
-  description = "Pause or resume capacity"
-  default = false
-  type = bool
-}
-
-variable "vault_name" {
-  description = "Azure Key Vault name (globally unique)"
-  type = string
-}
-
-variable "client_secret" {
-  description = "The client secret."
+  description = "Azure region for the Fabric capacity (no spaces, e.g. uksouth, westus3)."
+  default     = "uksouth"
   type        = string
-  sensitive   = true
 }
 
 variable "client_id" {
-  description = "The client id."
+  description = "Service principal client ID. Required when use_sp = true."
   type        = string
+  default     = null
   sensitive   = true
 }
 
+variable "enterprise_object_id" {
+  description = "Service principal Enterprise Application Object ID. Required when use_sp = true."
+  type        = string
+  default     = null
+  sensitive   = true
+}
 
-variable "use_sp" {
-  description = "Use service principle for auth"
-  default = false
-  type = bool
+variable "client_secret" {
+  description = "Service principal client secret. Required when use_sp = true."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+# --- ADLS Gen2 OneLake shortcut on the Bronze lakehouse (optional) ---
+
+variable "adls_shortcut_name" {
+  description = "Name of the ADLS Gen2 shortcut to create in the Bronze lakehouse. Leave empty to skip."
+  type        = string
+  default     = ""
+}
+
+variable "adls_shortcut_location" {
+  description = "ADLS Gen2 endpoint, e.g. https://<account>.dfs.core.windows.net."
+  type        = string
+  default     = ""
+}
+
+variable "adls_shortcut_subpath" {
+  description = "Container and optional subfolder, e.g. mycontainer/mysubfolder."
+  type        = string
+  default     = ""
+}
+
+variable "adls_shortcut_connection_id" {
+  description = "Fabric cloud connection GUID bound to the ADLS Gen2 shortcut."
+  type        = string
+  default     = ""
 }

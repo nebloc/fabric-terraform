@@ -3,28 +3,36 @@ terraform {
   required_providers {
     fabric = {
       source  = "microsoft/fabric"
-      version = "1.6.0"
+      version = "~> 1.11"
     }
     azapi = {
-      source = "Azure/azapi"
-      version = "2.0.1"
+      source  = "Azure/azapi"
+      version = "~> 2.10"
     }
     azuread = {
       source  = "hashicorp/azuread"
-      version = "~> 2.15.0"
+      version = "~> 3.1.0"
     }
   }
 }
 
-# Configure the Microsoft Fabric Terraform Provider
+# Configure the Microsoft Fabric Terraform Provider.
 provider "fabric" {
-  # Configuration options
-  tenant_id     = var.use_sp ? var.tenant_id : null
-  client_id     = var.use_sp ? var.client_id : null
-  client_secret = var.use_sp ? var.client_secret : null
+  tenant_id     = var.tenant_id
+  client_id     = var.client_id
+  client_secret = var.client_secret
   preview       = true
 }
 
+# Configure the Azure Resource Manager provider for creating the resource group and fabric capacity.
+provider "azapi" {
+  tenant_id       = var.tenant_id
+  subscription_id = var.subscription_id
+  client_id       = var.client_id
+  client_secret   = var.client_secret
+}
+
+# Configure the Azure AD provider to retrieve user object ids for workspace role assignments.
 provider "azuread" {
   tenant_id = var.tenant_id
 }

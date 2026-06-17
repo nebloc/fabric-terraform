@@ -1,24 +1,33 @@
-# GET Subscription data
+# Subscription that hosts the resource group and capacity.
 data "azapi_resource_id" "subscription" {
   type        = "Microsoft.Resources/subscriptions@2021-10-01"
   resource_id = "/subscriptions/${var.subscription_id}"
 }
 
-# CREATE resource group in subscription
-data "azapi_resource" "resource_group" {
-  type = "Microsoft.Resources/resourceGroups@2018-05-01"
-  name = "fabricterraform-rg"
-  # location = var.location
+
+# Create a resource group to host the fabric capacity. 
+# If you already have a resource group you want to use, you can comment out this resource and uncomment the data source below to reference the existing resource group instead.
+# IMPORTANT see note on parent_id in the capacity resource below.
+resource "azapi_resource" "resource_group" {
+  type      = "Microsoft.Resources/resourceGroups@2018-05-01"
+  name      = var.resource_group_name
+  location    = var.location
   parent_id = data.azapi_resource_id.subscription.id
 }
 
-# CREATE capacity in resource group
+# # Existing resource group used to host the Fabric capacity.
+# data "azapi_resource" "resource_group" {
+#   type      = "Microsoft.Resources/resourceGroups@2018-05-01"
+#   name      = var.resource_group_name
+#   parent_id = data.azapi_resource_id.subscription.id
+# }
+
+# Fabric capacity created in the resource group above.
 resource "azapi_resource" "capacity" {
   type      = "Microsoft.Fabric/capacities@2023-11-01"
   name      = var.capacity_name
-  parent_id = data.azapi_resource.resource_group.id
-
-  location = data.azapi_resource.resource_group.location
+  parent_id = resource.azapi_resource.resource_group.id # IMPORTANT if you use an existsing capacity make sure to change the `resource.` to `data.`
+  location  = var.location
 
   body = {
     sku = {
@@ -27,14 +36,8 @@ resource "azapi_resource" "capacity" {
     }
     properties = {
       administration = {
-        members = var.administrators
+        members = concat([var.enterprise_object_id], var.administrators)
       }
     }
   }
 }
-
-# Get users  from Azure Entra ID  
-data "azuread_users" "users" {
-  user_principal_names = var.workspace_members
-}
-

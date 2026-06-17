@@ -1,53 +1,121 @@
-# Fabric Terrafrorm Example
+# Fabric CI/CD Lab — Terraform
 
-This project shows how terraform can be used to scaffold a data platform project. It uses [hashicorp/azuread](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs), [Azure/azapi](https://registry.terraform.io/providers/Azure/azapi/latest/docs), [hashicorp/azurerm](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs) and [microsoft/fabric](https://registry.terraform.io/providers/microsoft/fabric/latest/docs) providers to manage users, resource groups, Fabric capacities and Fabric itself respectively.
-A nix flake is included, allowing for `nix develop` to drop in to a shell with Azure CLI and terraform ready to be used.
+Provisions the Azure + Microsoft Fabric resources needed to run a multi-environment (dev / test / prod) Fabric CI/CD lab.
 
-You will need to authenticate with Azure cli as a first step with `az login`.
+## What it creates
 
-Create a variables file `terraform.tfvars` with the required configuration:
-```toml
-tenant_id = "<Azure Entra ID Tenant ID>"
+Top-level (root module):
 
-subscription_id = "<Azure subscription ID>"
+- **Azure Resource Group** — hosts the Fabric capacity (`azapi_resource.resource_group` in [azure.tf](azure.tf)).
+- **Microsoft Fabric Capacity** — `Microsoft.Fabric/capacities` at the SKU set by `fabric_tier` (default `F2`). The SPN's enterprise-application object id plus any UPNs in `administrators` are set as capacity admins.
+- **Lookup of `workspace_admins`** UPNs in Entra ID to resolve them to object ids.
 
-capacity_name = "terraformexamplecapacity"
-administrators = ["<user prinicple of Fabric Capacity administrator>", "<user prinicple of Fabric Capacity administrator>"]
-fabric_tier = "<default is F2>"
-location = "<default is 'uk south'>"
+Per environment (the `./workspace` module is invoked once per key in `local.environments` — `dev`, `test`, `prod` — see [workspace/workspace.tf](workspace/workspace.tf)):
 
-workspace_display_name = "Data Platform"
-workspace_members = ["<Other user principle names of extra users to add to the workspace>"]
+- **Fabric Workspace** named `<workspace_name_prefix>-<env>` with a system-assigned workspace identity, bound to the capacity above.
+- **Workspace admin role assignments** for every user in `workspace_admins`.
+- **Two Fabric Lakehouses** (schemas enabled).
+- **One Fabric Warehouse**.
+
+## Outputs
+
+All root outputs are maps keyed by environment (`dev` / `test` / `prod`):
+
+- `workspace_ids`
+- `lakehouse_ids`
+- `warehouse_ids`
+
+Pull a single value in scripts:
+
+```bash
+terraform output -json lakehouse_ids | jq -r '.dev'
 ```
 
-> WARNING: the user running the scipt will be the owner of the created Lakehouse and Warehouse in Fabric. There is no way to change this at present and if the user becomes deactivated the SQL endpoints and shortcuts will be effected.
->
-> Use a service principle instead to get around this. I'll be adding alternat authentication later
+## Prerequisites
 
-Run `$ terraform plan` to view what will be created;
-1. Resource Group
-2. Fabric Capacity
-3. Fabric Workspace associated with capacity
-4. Bronze, Silver and Gold Lakehouses or Warehouses
-5. Member role assignments
+- Terraform `>= 1.8, < 2.0`.
+- Providers (auto-installed by `terraform init`):
+  - `microsoft/fabric ~> 1.11`
+  - `Azure/azapi ~> 2.10`
+  - `hashicorp/azuread ~> 3.1`
+- An Azure subscription where the resource group + Fabric capacity will be created.
+- An Entra ID **service principal** (app registration) with a client secret. You need:
+  - `tenant_id`
+  - `client_id` (Application ID)
+  - `client_secret`
+  - `enterprise_object_id` — the **Object ID of the Enterprise Application** (service principal), *not* the app registration object id. This is what gets assigned as a Fabric capacity admin.
+- An **Entra ID security group** containing your service principal, added to the Fabric tenant setting **"Service principals can use Fabric APIs"** (and the related workspace/admin API settings if you don't already allow all SPNs). Without this, the Fabric provider cannot create workspaces or items even with correct Azure RBAC.
+- The UPNs you list in `workspace_admins` and `administrators` must exist in the same tenant.
 
-## Creating a Shortcut
+## Required variables
 
-The script `create.sh` will run terraform apply, and then use the output and az-cli to perform a [REST API call to create a shortcut](https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/create-shortcut?tabs=HTTP#code-try-0)
+Set these in `terraform.tfvars` (see [variables.tf](variables.tf) for the full list):
 
-It does this by sending the body from a file called req.json. This is ommitted from the git repo but can be created based on the following template:
-```json
-{
-  "path": "Files",
-  "name": "<shortcut_name>",
-  "target": {
-    "type": "AdlsGen2",
-    "adlsGen2": {
-      "location": "https://<storageaccount>.dfs.core.windows.net",
-      "subpath": "/<container_name>/<path>",
-      "connectionId": "<connection_id>"
-    }
-  }
-}
+| Variable | Purpose |
+|---|---|
+| `tenant_id` | Entra tenant id |
+| `subscription_id` | Subscription that hosts the resource group + capacity |
+| `resource_group_name` | Name of the RG to create |
+| `location` | Azure region (e.g. `westus3`, `uksouth`) |
+| `capacity_name` | Name of the Fabric capacity to create |
+| `fabric_tier` | Capacity SKU, default `F2` |
+| `workspace_name_prefix` | Prefix for the per-env workspace names |
+| `administrators` | UPNs to add as capacity admins (alongside the SPN) |
+| `workspace_admins` | UPNs to add as workspace admins on every env |
+| `client_id` / `client_secret` / `enterprise_object_id` | SPN credentials and EA object id |
+
+## Minimum permissions for the service principal
+
+The SPN authenticates to three planes — Azure ARM, Entra ID (Graph), and Fabric — so it needs rights in each.
+
+### Azure (ARM / `azapi` provider)
+
+Scoped at the **subscription** (or at a parent RG if you pre-create the RG and switch [azure.tf](azure.tf) to the `data` lookup):
+
+- `Microsoft.Resources/subscriptions/resourceGroups/write` — create the RG (skip if using existing RG).
+- `Microsoft.Resources/subscriptions/resourceGroups/read`
+- `Microsoft.Fabric/capacities/*` — create / read / delete the capacity.
+- `Microsoft.Fabric/register/action` — needed once if the `Microsoft.Fabric` resource provider is not yet registered on the subscription.
+
+The simplest built-in role that covers this is **Contributor** on the subscription (or on the resource group, if the RG already exists). For least privilege, a custom role with the actions above scoped to the RG is sufficient after the RG and `Microsoft.Fabric` RP are pre-provisioned.
+
+### Entra ID (`azuread` provider)
+
+The provider only does a `data "azuread_users"` lookup by UPN. Either:
+
+- Microsoft Graph application permission **`User.Read.All`** (admin-consented), **or**
+- Membership in a directory role like **Directory Readers**.
+
+No write permissions in Entra are required.
+
+### Microsoft Fabric (`fabric` provider)
+
+Two layers:
+
+1. **Tenant settings** (Fabric admin portal) — the SPN must be in a security group enabled for:
+   - *Service principals can use Fabric APIs.*
+   - *Service principals can create workspaces, connections, and deployment pipelines* (or the equivalent setting in your tenant).
+2. **Capacity admin** — the SPN's enterprise-application object id is added to the capacity admin list by this terraform via `enterprise_object_id`, which is what allows it to assign workspaces to the capacity and manage them.
+
+No Power BI / Fabric "tenant admin" role is required if the tenant settings above are scoped to a group containing the SPN.
+
+## Usage
+
+```bash
+terraform init
+terraform plan
+terraform apply
 ```
-> The connection will need to be created in the Fabric `Manage Connections and Gateways` menu ahead of this and the connection ID captured for the request.
+
+To target a single environment:
+
+```bash
+terraform apply -target='module.workspace["dev"]'
+```
+
+## Notes / gotchas
+
+- **Do not commit `terraform.tfvars`** — it contains the SPN client secret.
+- `terraform.tfstate` is currently in the repo. For real use, configure a remote backend (e.g. Azure Storage) before running anything beyond a throwaway lab.
+- If you switch to an existing resource group, change `parent_id = resource.azapi_resource.resource_group.id` to `data.azapi_resource.resource_group.id` in [azure.tf](azure.tf) and uncomment the data block.
+- The Fabric provider's `preview = true` flag is required because some resources are still preview-gated.
