@@ -84,7 +84,7 @@ stages:
                   -backend-config="storage_account_name=$(backendStorageAccount)" \
                   -backend-config="container_name=$(backendContainer)" \
                   -backend-config="key=$(backendKey)"
-                terraform destroy -auto-apply -lock-timeout=300s
+                terraform destroy -auto-approve -lock-timeout=300s
             env:
               TF_IN_AUTOMATION: 'true'
               # --- Service principal auth (backend storage + ARM/azapi) ---
