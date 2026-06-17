@@ -14,12 +14,12 @@ variable "workspace_name" {
 
 variable "description" {
   description = "Description of the workspace"
-  type = string
+  type        = string
 }
 
 variable "capacity" {
   description = "The capacity id to assign the workspace to"
-  type = string
+  type        = string
 }
 
 variable "users" {
