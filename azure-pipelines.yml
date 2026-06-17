@@ -90,7 +90,9 @@ stages:
                 cd "$(terraformWorkingDirectory)"
 
                 terraform fmt -check -recursive
+
                 echo "Ben was here"
+                
                 terraform init -input=false \
                   -backend-config="resource_group_name=$(backendResourceGroup)" \
                   -backend-config="storage_account_name=$(backendStorageAccount)" \
