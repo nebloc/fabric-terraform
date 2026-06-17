@@ -1,0 +1,146 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+ - stage: Validate
+   displayName: 'Validate Terraform'
+   jobs:
+     - job: Validate
+       displayName: 'Run terraform fmt and validate'
+       steps:
+         - checkout: self
+
+         - task: TerraformInstaller@1
+           displayName: 'Install Terraform'
+           inputs:
+             terraformVersion: '$(terraformVersion)'
+
+         - task: AzureCLI@2
+           displayName: 'Terraform fmt and validate'
+           inputs:
+             azureSubscription: '$(azureServiceConnection)'
+             addSpnToEnvironment: true
+             scriptType: 'bash'
+             scriptLocation: 'inlineScript'
+             inlineScript: |
+               set -euo pipefail
+
+               export TF_IN_AUTOMATION=true
+               export ARM_USE_OIDC=true
+               export ARM_USE_AZUREAD=true
+               export ARM_OIDC_TOKEN="$idToken"
+               export ARM_CLIENT_ID="$servicePrincipalId"
+               export ARM_TENANT_ID="$tenantId"
+               export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+               export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+               cd "$(terraformWorkingDirectory)"
+
+               terraform fmt -check -recursive
+               terraform init -input=false
+               terraform validate
+
+ - stage: Plan
+   displayName: 'Plan Terraform'
+   dependsOn: Validate
+   jobs:
+     - job: Plan
+       displayName: 'Create Terraform plan'
+       steps:
+         - checkout: self
+
+         - task: TerraformInstaller@1
+           displayName: 'Install Terraform'
+           inputs:
+             terraformVersion: '$(terraformVersion)'
+
+         - task: AzureCLI@2
+           displayName: 'Terraform plan'
+           inputs:
+             azureSubscription: '$(azureServiceConnection)'
+             addSpnToEnvironment: true
+             scriptType: 'bash'
+             scriptLocation: 'inlineScript'
+             inlineScript: |
+               set -euo pipefail
+
+               export TF_IN_AUTOMATION=true
+               export ARM_USE_OIDC=true
+               export ARM_USE_AZUREAD=true
+               export ARM_OIDC_TOKEN="$idToken"
+               export ARM_CLIENT_ID="$servicePrincipalId"
+               export ARM_TENANT_ID="$tenantId"
+               export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+               export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+               cd "$(terraformWorkingDirectory)"
+
+               terraform init -input=false
+               terraform plan -input=false -lock-timeout=300s -out=tfplan -var-file=prod.tfvars
+               terraform show -no-color tfplan > tfplan.txt
+
+               mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
+               cp tfplan "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
+               cp tfplan.txt "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+
+         - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
+           artifact: 'terraform-plan'
+           displayName: 'Publish Terraform plan artifact'
+
+ - stage: Apply
+   displayName: 'Apply Terraform'
+   dependsOn: Plan
+   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+   jobs:
+     - deployment: Apply
+       displayName: 'Apply Terraform to production'
+       environment: '$(environmentName)'
+       strategy:
+         runOnce:
+           deploy:
+             steps:
+               - checkout: self
+
+               - task: DownloadPipelineArtifact@2
+                 displayName: 'Download Terraform plan artifact'
+                 inputs:
+                   buildType: 'current'
+                   artifactName: 'terraform-plan'
+                   targetPath: '$(Pipeline.Workspace)/terraform-plan'
+
+               - task: TerraformInstaller@1
+                 displayName: 'Install Terraform'
+                 inputs:
+                   terraformVersion: '$(terraformVersion)'
+
+               - task: AzureCLI@2
+                 displayName: 'Terraform apply'
+                 inputs:
+                   azureSubscription: '$(azureServiceConnection)'
+                   addSpnToEnvironment: true
+                   scriptType: 'bash'
+                   scriptLocation: 'inlineScript'
+                   inlineScript: |
+                     set -euo pipefail
+
+                     export TF_IN_AUTOMATION=true
+                     export ARM_USE_OIDC=true
+                     export ARM_USE_AZUREAD=true
+                     export ARM_OIDC_TOKEN="$idToken"
+                     export ARM_CLIENT_ID="$servicePrincipalId"
+                     export ARM_TENANT_ID="$tenantId"
+                     export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                     export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+                     cd "$(terraformWorkingDirectory)"
+
+                     terraform init -input=false
+                     terraform apply -input=false -lock-timeout=300s "$(Pipeline.Workspace)/terraform-plan/tfplan"
