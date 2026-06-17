@@ -8,7 +8,7 @@
 # Secrets MUST live in a variable group (mark client_secret as secret); they are
 # NOT committed here. Create a variable group named `fabric-terraform` (or change
 # the name below) containing at least:
-#   tenant_id, subscription_id, client_id, client_secret, enterprise_object_id
+#   tenantId, subscriptionId, clientId, client_secret, enterpriseObjectId
 # Non-secret values can live in the same group or as the inline defaults below.
 
 trigger:
@@ -56,16 +56,6 @@ variables:
   - name: workspace_admins
     value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
 
-  # ---- Optional ADLS Gen2 OneLake shortcut (leave empty to skip). ----
-  - name: adls_shortcut_name
-    value: ''
-  - name: adls_shortcut_location
-    value: ''
-  - name: adls_shortcut_subpath
-    value: ''
-  - name: adls_shortcut_connection_id
-    value: ''
-
 stages:
   - stage: Validate
     displayName: 'Validate Terraform'
@@ -107,16 +97,16 @@ stages:
               TF_IN_AUTOMATION: 'true'
               # --- Service principal auth (backend storage + ARM/azapi) ---
               ARM_USE_AZUREAD: 'true'
-              ARM_TENANT_ID: $(tenant_id)
-              ARM_SUBSCRIPTION_ID: $(subscription_id)
-              ARM_CLIENT_ID: $(client_id)
-              ARM_CLIENT_SECRET: $(client_secret)
+              ARM_TENANT_ID: $(tenantId)
+              ARM_SUBSCRIPTION_ID: $(subscriptionId)
+              ARM_CLIENT_ID: $(clientId)
+              ARM_CLIENT_SECRET: $(clientSecret)
               # --- Terraform input variables ---
-              TF_VAR_tenant_id: $(tenant_id)
-              TF_VAR_subscription_id: $(subscription_id)
-              TF_VAR_client_id: $(client_id)
-              TF_VAR_client_secret: $(client_secret)
-              TF_VAR_enterprise_object_id: $(enterprise_object_id)
+              TF_VAR_tenant_id: $(tenantId)
+              TF_VAR_subscription_id: $(subscriptionId)
+              TF_VAR_client_id: $(clientId)
+              TF_VAR_client_secret: $(clientSecret)
+              TF_VAR_enterprise_object_id: $(enterpriseObjectId)
               TF_VAR_resource_group_name: $(resource_group_name)
               TF_VAR_capacity_name: $(capacity_name)
               TF_VAR_location: $(location)
@@ -127,7 +117,7 @@ stages:
               TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
               TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
               TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
-              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connection_id)
+              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connectionId)
 
   - stage: Plan
     displayName: 'Plan Terraform'
@@ -166,15 +156,15 @@ stages:
             env:
               TF_IN_AUTOMATION: 'true'
               ARM_USE_AZUREAD: 'true'
-              ARM_TENANT_ID: $(tenant_id)
-              ARM_SUBSCRIPTION_ID: $(subscription_id)
-              ARM_CLIENT_ID: $(client_id)
-              ARM_CLIENT_SECRET: $(client_secret)
-              TF_VAR_tenant_id: $(tenant_id)
-              TF_VAR_subscription_id: $(subscription_id)
-              TF_VAR_client_id: $(client_id)
-              TF_VAR_client_secret: $(client_secret)
-              TF_VAR_enterprise_object_id: $(enterprise_object_id)
+              ARM_TENANT_ID: $(tenantId)
+              ARM_SUBSCRIPTION_ID: $(subscriptionId)
+              ARM_CLIENT_ID: $(clientId)
+              ARM_CLIENT_SECRET: $(clientSecret)
+              TF_VAR_tenant_id: $(tenantId)
+              TF_VAR_subscription_id: $(subscriptionId)
+              TF_VAR_client_id: $(clientId)
+              TF_VAR_client_secret: $(clientSecret)
+              TF_VAR_enterprise_object_id: $(enterpriseObjectId)
               TF_VAR_resource_group_name: $(resource_group_name)
               TF_VAR_capacity_name: $(capacity_name)
               TF_VAR_location: $(location)
@@ -185,7 +175,7 @@ stages:
               TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
               TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
               TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
-              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connection_id)
+              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connectionId)
 
           - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
             artifact: 'terraform-plan'
@@ -235,15 +225,15 @@ stages:
                   env:
                     TF_IN_AUTOMATION: 'true'
                     ARM_USE_AZUREAD: 'true'
-                    ARM_TENANT_ID: $(tenant_id)
-                    ARM_SUBSCRIPTION_ID: $(subscription_id)
-                    ARM_CLIENT_ID: $(client_id)
-                    ARM_CLIENT_SECRET: $(client_secret)
-                    TF_VAR_tenant_id: $(tenant_id)
-                    TF_VAR_subscription_id: $(subscription_id)
-                    TF_VAR_client_id: $(client_id)
-                    TF_VAR_client_secret: $(client_secret)
-                    TF_VAR_enterprise_object_id: $(enterprise_object_id)
+                    ARM_TENANT_ID: $(tenantId)
+                    ARM_SUBSCRIPTION_ID: $(subscriptionId)
+                    ARM_CLIENT_ID: $(clientId)
+                    ARM_CLIENT_SECRET: $(clientSecret)
+                    TF_VAR_tenant_id: $(tenantId)
+                    TF_VAR_subscription_id: $(subscriptionId)
+                    TF_VAR_client_id: $(clientId)
+                    TF_VAR_client_secret: $(clientSecret)
+                    TF_VAR_enterprise_object_id: $(enterpriseObjectId)
                     TF_VAR_resource_group_name: $(resource_group_name)
                     TF_VAR_capacity_name: $(capacity_name)
                     TF_VAR_location: $(location)
@@ -254,4 +244,4 @@ stages:
                     TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
                     TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
                     TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
-                    TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connection_id)
+                    TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connectionId)
