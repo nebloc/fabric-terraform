@@ -1,146 +1,250 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# Terraform CI/CD for the Fabric CI/CD lab.
+#
+# Runs in Azure DevOps and authenticates to Azure (state backend storage account,
+# ARM/azapi, Entra ID and Microsoft Fabric) with a single Entra ID service
+# principal. Every value the Terraform configuration needs - backend storage
+# config and all root-module input variables - is supplied from this pipeline.
+#
+# Secrets MUST live in a variable group (mark client_secret as secret); they are
+# NOT committed here. Create a variable group named `fabric-terraform` (or change
+# the name below) containing at least:
+#   tenant_id, subscription_id, client_id, client_secret, enterprise_object_id
+# Non-secret values can live in the same group or as the inline defaults below.
 
 trigger:
-- main
+  - main
 
 pool:
   vmImage: ubuntu-latest
 
+variables:
+  # ---- Secrets + auth (service principal). Define these in the variable group. ----
+  - group: fabric-terraform
+
+  # ---- Pipeline / tooling config ----
+  - name: terraformVersion
+    value: '1.9.8'
+  - name: terraformWorkingDirectory
+    value: '$(System.DefaultWorkingDirectory)'
+  - name: environmentName
+    value: 'fabric-prod'
+
+  # ---- Terraform state backend (Azure Storage) ----
+  - name: backendResourceGroup
+    value: 'fabriccicdlab'
+  - name: backendStorageAccount
+    value: 'becolemandataplatform'
+  - name: backendContainer
+    value: 'tfstate'
+  - name: backendKey
+    value: 'prod.terraform.tfstate'
+
+  # ---- Terraform root-module input variables (non-secret). ----
+  # Lists must be JSON so they bind to Terraform list(string) variables.
+  - name: resource_group_name
+    value: 'fabriccicdlab'
+  - name: capacity_name
+    value: 'fabriccicdlab'
+  - name: location
+    value: 'westus3'
+  - name: fabric_tier
+    value: 'F2'
+  - name: workspace_name_prefix
+    value: 'Fabric_CICD_Lab'
+  - name: administrators
+    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
+  - name: workspace_admins
+    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
+
+  # ---- Optional ADLS Gen2 OneLake shortcut (leave empty to skip). ----
+  - name: adls_shortcut_name
+    value: ''
+  - name: adls_shortcut_location
+    value: ''
+  - name: adls_shortcut_subpath
+    value: ''
+  - name: adls_shortcut_connection_id
+    value: ''
+
 stages:
- - stage: Validate
-   displayName: 'Validate Terraform'
-   jobs:
-     - job: Validate
-       displayName: 'Run terraform fmt and validate'
-       steps:
-         - checkout: self
+  - stage: Validate
+    displayName: 'Validate Terraform'
+    jobs:
+      - job: Validate
+        displayName: 'Run terraform fmt and validate'
+        steps:
+          - checkout: self
 
-         - task: TerraformInstaller@1
-           displayName: 'Install Terraform'
-           inputs:
-             terraformVersion: '$(terraformVersion)'
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '$(terraformVersion)'
 
-         - task: AzureCLI@2
-           displayName: 'Terraform fmt and validate'
-           inputs:
-             azureSubscription: '$(azureServiceConnection)'
-             addSpnToEnvironment: true
-             scriptType: 'bash'
-             scriptLocation: 'inlineScript'
-             inlineScript: |
-               set -euo pipefail
+          - task: Bash@3
+            displayName: 'Terraform fmt and validate'
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -euo pipefail
 
-               export TF_IN_AUTOMATION=true
-               export ARM_USE_OIDC=true
-               export ARM_USE_AZUREAD=true
-               export ARM_OIDC_TOKEN="$idToken"
-               export ARM_CLIENT_ID="$servicePrincipalId"
-               export ARM_TENANT_ID="$tenantId"
-               export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
-               export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+                cd "$(terraformWorkingDirectory)"
 
-               cd "$(terraformWorkingDirectory)"
+                terraform fmt -check -recursive
+                terraform init -input=false \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainer)" \
+                  -backend-config="key=$(backendKey)"
+                terraform validate
+            env:
+              TF_IN_AUTOMATION: 'true'
+              # --- Service principal auth (backend storage + ARM/azapi) ---
+              ARM_USE_AZUREAD: 'true'
+              ARM_TENANT_ID: $(tenant_id)
+              ARM_SUBSCRIPTION_ID: $(subscription_id)
+              ARM_CLIENT_ID: $(client_id)
+              ARM_CLIENT_SECRET: $(client_secret)
+              # --- Terraform input variables ---
+              TF_VAR_tenant_id: $(tenant_id)
+              TF_VAR_subscription_id: $(subscription_id)
+              TF_VAR_client_id: $(client_id)
+              TF_VAR_client_secret: $(client_secret)
+              TF_VAR_enterprise_object_id: $(enterprise_object_id)
+              TF_VAR_resource_group_name: $(resource_group_name)
+              TF_VAR_capacity_name: $(capacity_name)
+              TF_VAR_location: $(location)
+              TF_VAR_fabric_tier: $(fabric_tier)
+              TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
+              TF_VAR_administrators: $(administrators)
+              TF_VAR_workspace_admins: $(workspace_admins)
+              TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
+              TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
+              TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
+              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connection_id)
 
-               terraform fmt -check -recursive
-               terraform init -input=false
-               terraform validate
+  - stage: Plan
+    displayName: 'Plan Terraform'
+    dependsOn: Validate
+    jobs:
+      - job: Plan
+        displayName: 'Create Terraform plan'
+        steps:
+          - checkout: self
 
- - stage: Plan
-   displayName: 'Plan Terraform'
-   dependsOn: Validate
-   jobs:
-     - job: Plan
-       displayName: 'Create Terraform plan'
-       steps:
-         - checkout: self
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '$(terraformVersion)'
 
-         - task: TerraformInstaller@1
-           displayName: 'Install Terraform'
-           inputs:
-             terraformVersion: '$(terraformVersion)'
+          - task: Bash@3
+            displayName: 'Terraform plan'
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -euo pipefail
 
-         - task: AzureCLI@2
-           displayName: 'Terraform plan'
-           inputs:
-             azureSubscription: '$(azureServiceConnection)'
-             addSpnToEnvironment: true
-             scriptType: 'bash'
-             scriptLocation: 'inlineScript'
-             inlineScript: |
-               set -euo pipefail
+                cd "$(terraformWorkingDirectory)"
 
-               export TF_IN_AUTOMATION=true
-               export ARM_USE_OIDC=true
-               export ARM_USE_AZUREAD=true
-               export ARM_OIDC_TOKEN="$idToken"
-               export ARM_CLIENT_ID="$servicePrincipalId"
-               export ARM_TENANT_ID="$tenantId"
-               export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
-               export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+                terraform init -input=false \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainer)" \
+                  -backend-config="key=$(backendKey)"
+                terraform plan -input=false -lock-timeout=300s -out=tfplan
+                terraform show -no-color tfplan > tfplan.txt
 
-               cd "$(terraformWorkingDirectory)"
+                mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
+                cp tfplan "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
+                cp tfplan.txt "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+            env:
+              TF_IN_AUTOMATION: 'true'
+              ARM_USE_AZUREAD: 'true'
+              ARM_TENANT_ID: $(tenant_id)
+              ARM_SUBSCRIPTION_ID: $(subscription_id)
+              ARM_CLIENT_ID: $(client_id)
+              ARM_CLIENT_SECRET: $(client_secret)
+              TF_VAR_tenant_id: $(tenant_id)
+              TF_VAR_subscription_id: $(subscription_id)
+              TF_VAR_client_id: $(client_id)
+              TF_VAR_client_secret: $(client_secret)
+              TF_VAR_enterprise_object_id: $(enterprise_object_id)
+              TF_VAR_resource_group_name: $(resource_group_name)
+              TF_VAR_capacity_name: $(capacity_name)
+              TF_VAR_location: $(location)
+              TF_VAR_fabric_tier: $(fabric_tier)
+              TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
+              TF_VAR_administrators: $(administrators)
+              TF_VAR_workspace_admins: $(workspace_admins)
+              TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
+              TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
+              TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
+              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connection_id)
 
-               terraform init -input=false
-               terraform plan -input=false -lock-timeout=300s -out=tfplan -var-file=prod.tfvars
-               terraform show -no-color tfplan > tfplan.txt
+          - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
+            artifact: 'terraform-plan'
+            displayName: 'Publish Terraform plan artifact'
 
-               mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
-               cp tfplan "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
-               cp tfplan.txt "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+  - stage: Apply
+    displayName: 'Apply Terraform'
+    dependsOn: Plan
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: Apply
+        displayName: 'Apply Terraform to production'
+        environment: '$(environmentName)'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
 
-         - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
-           artifact: 'terraform-plan'
-           displayName: 'Publish Terraform plan artifact'
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download Terraform plan artifact'
+                  inputs:
+                    buildType: 'current'
+                    artifactName: 'terraform-plan'
+                    targetPath: '$(Pipeline.Workspace)/terraform-plan'
 
- - stage: Apply
-   displayName: 'Apply Terraform'
-   dependsOn: Plan
-   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-   jobs:
-     - deployment: Apply
-       displayName: 'Apply Terraform to production'
-       environment: '$(environmentName)'
-       strategy:
-         runOnce:
-           deploy:
-             steps:
-               - checkout: self
+                - task: TerraformInstaller@1
+                  displayName: 'Install Terraform'
+                  inputs:
+                    terraformVersion: '$(terraformVersion)'
 
-               - task: DownloadPipelineArtifact@2
-                 displayName: 'Download Terraform plan artifact'
-                 inputs:
-                   buildType: 'current'
-                   artifactName: 'terraform-plan'
-                   targetPath: '$(Pipeline.Workspace)/terraform-plan'
+                - task: Bash@3
+                  displayName: 'Terraform apply'
+                  inputs:
+                    targetType: 'inline'
+                    script: |
+                      set -euo pipefail
 
-               - task: TerraformInstaller@1
-                 displayName: 'Install Terraform'
-                 inputs:
-                   terraformVersion: '$(terraformVersion)'
+                      cd "$(terraformWorkingDirectory)"
 
-               - task: AzureCLI@2
-                 displayName: 'Terraform apply'
-                 inputs:
-                   azureSubscription: '$(azureServiceConnection)'
-                   addSpnToEnvironment: true
-                   scriptType: 'bash'
-                   scriptLocation: 'inlineScript'
-                   inlineScript: |
-                     set -euo pipefail
-
-                     export TF_IN_AUTOMATION=true
-                     export ARM_USE_OIDC=true
-                     export ARM_USE_AZUREAD=true
-                     export ARM_OIDC_TOKEN="$idToken"
-                     export ARM_CLIENT_ID="$servicePrincipalId"
-                     export ARM_TENANT_ID="$tenantId"
-                     export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
-                     export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
-
-                     cd "$(terraformWorkingDirectory)"
-
-                     terraform init -input=false
-                     terraform apply -input=false -lock-timeout=300s "$(Pipeline.Workspace)/terraform-plan/tfplan"
+                      terraform init -input=false \
+                        -backend-config="resource_group_name=$(backendResourceGroup)" \
+                        -backend-config="storage_account_name=$(backendStorageAccount)" \
+                        -backend-config="container_name=$(backendContainer)" \
+                        -backend-config="key=$(backendKey)"
+                      terraform apply -input=false -lock-timeout=300s "$(Pipeline.Workspace)/terraform-plan/tfplan"
+                  env:
+                    TF_IN_AUTOMATION: 'true'
+                    ARM_USE_AZUREAD: 'true'
+                    ARM_TENANT_ID: $(tenant_id)
+                    ARM_SUBSCRIPTION_ID: $(subscription_id)
+                    ARM_CLIENT_ID: $(client_id)
+                    ARM_CLIENT_SECRET: $(client_secret)
+                    TF_VAR_tenant_id: $(tenant_id)
+                    TF_VAR_subscription_id: $(subscription_id)
+                    TF_VAR_client_id: $(client_id)
+                    TF_VAR_client_secret: $(client_secret)
+                    TF_VAR_enterprise_object_id: $(enterprise_object_id)
+                    TF_VAR_resource_group_name: $(resource_group_name)
+                    TF_VAR_capacity_name: $(capacity_name)
+                    TF_VAR_location: $(location)
+                    TF_VAR_fabric_tier: $(fabric_tier)
+                    TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
+                    TF_VAR_administrators: $(administrators)
+                    TF_VAR_workspace_admins: $(workspace_admins)
+                    TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
+                    TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
+                    TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
+                    TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connection_id)
