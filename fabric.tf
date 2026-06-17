@@ -21,20 +21,20 @@ data "azuread_users" "users" {
 # The capacity and workspace admins are passed in as variables to the module. The outputs of the module are used to retrieve the resource ids of the created resources.
 locals {
   environments = {
-    dev  = {
-      desc = "Development environment"
+    dev = {
+      desc       = "Development environment"
       users_role = "Viewer"
     }
-    test  = {
-      desc = "Testing environment"
+    test = {
+      desc       = "Testing environment"
       users_role = "Viewer"
     }
-    prod  = {
-      desc = "Production environment"
+    prod = {
+      desc       = "Production environment"
       users_role = "Viewer"
     }
     feature = {
-      desc = "Feature workspace for development"
+      desc       = "Feature workspace for development"
       users_role = "Admin"
     }
   }
@@ -47,8 +47,8 @@ module "workspace" {
   workspace_name = "${var.workspace_name_prefix}-${each.key}"
   description    = each.value.desc
 
-  capacity         = data.fabric_capacity.capacity.id
-  users = data.azuread_users.users.object_ids
+  capacity   = data.fabric_capacity.capacity.id
+  users      = data.azuread_users.users.object_ids
   users_role = each.value.users_role
 }
 
@@ -61,25 +61,25 @@ resource "fabric_connection" "copyjob" {
   connection_details = {
     creation_method = "CopyJob.Actions"
     type            = "CopyJob"
-    parameters = [ ]
+    parameters      = []
   }
   credential_details = {
-    credential_type       = "ServicePrincipal"
+    credential_type = "ServicePrincipal"
     service_principal_credentials = {
-      client_id                 = var.client_id
-      client_secret_wo          = var.client_secret
-      client_secret_wo_version  = 1 # Need to bump this if the secret is rotated
-      tenant_id                 = var.tenant_id
+      client_id                = var.client_id
+      client_secret_wo         = var.client_secret
+      client_secret_wo_version = 1 # Need to bump this if the secret is rotated
+      tenant_id                = var.tenant_id
     }
   }
 }
 
 # Assign Workspace Admins to the CopyJob connection.
 resource "fabric_connection_role_assignment" "copyjob_admins" {
-  for_each = toset(data.azuread_users.users.object_ids)
+  for_each      = toset(data.azuread_users.users.object_ids)
   connection_id = fabric_connection.copyjob.id
   principal = {
-    id = each.value
+    id   = each.value
     type = "User"
   }
   role = "Owner"

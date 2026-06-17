@@ -11,7 +11,7 @@ data "azapi_resource_id" "subscription" {
 resource "azapi_resource" "resource_group" {
   type      = "Microsoft.Resources/resourceGroups@2018-05-01"
   name      = var.resource_group_name
-  location    = var.location
+  location  = var.location
   parent_id = data.azapi_resource_id.subscription.id
 }
 
