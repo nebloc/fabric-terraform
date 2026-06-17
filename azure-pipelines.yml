@@ -23,7 +23,7 @@ variables:
 
   # ---- Pipeline / tooling config ----
   - name: terraformVersion
-    value: '1.9.8'
+    value: '1.15.6'
   - name: terraformWorkingDirectory
     value: '$(System.DefaultWorkingDirectory)'
   - name: environmentName
