@@ -30,10 +30,11 @@ variables:
     value: 'fabric'
 
   # ---- Terraform state backend (Azure Storage) ----
+  # Override these at queue time or in a variable group to point at your own state store.
   - name: backendResourceGroup
-    value: 'DataPlatform'
+    value: 'my-terraform-rg'
   - name: backendStorageAccount
-    value: 'becolemandataplatform'
+    value: 'mytfstatestorage'
   - name: backendContainer
     value: 'tfstate'
   - name: backendKey
@@ -41,20 +42,21 @@ variables:
 
   # ---- Terraform root-module input variables (non-secret). ----
   # Lists must be JSON so they bind to Terraform list(string) variables.
+  # Override these at queue time or in a variable group for your environment.
   - name: resource_group_name
-    value: 'fabriccicdlab'
+    value: 'my-fabric-rg'
   - name: capacity_name
-    value: 'fabriccicdlab'
+    value: 'my-fabric-capacity'
   - name: capacity_administrators
-    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
+    value: '["admin@example.onmicrosoft.com"]'
   - name: location
-    value: 'westus3'
+    value: 'uksouth'
   - name: fabric_tier
     value: 'F8'
   - name: workspace_name_prefix
-    value: 'Fabric_CICD_Lab'
+    value: 'My_Fabric_Lab'
   - name: workspace_admins
-    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
+    value: '["user@example.onmicrosoft.com"]'
 
 stages:
   - stage: Validate
