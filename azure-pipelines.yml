@@ -31,7 +31,7 @@ variables:
 
   # ---- Terraform state backend (Azure Storage) ----
   - name: backendResourceGroup
-    value: 'fabriccicdlab'
+    value: 'DataPlatform'
   - name: backendStorageAccount
     value: 'becolemandataplatform'
   - name: backendContainer
@@ -48,7 +48,7 @@ variables:
   - name: location
     value: 'westus3'
   - name: fabric_tier
-    value: 'F2'
+    value: 'F8'
   - name: workspace_name_prefix
     value: 'Fabric_CICD_Lab'
   - name: administrators
@@ -77,15 +77,8 @@ stages:
               script: |
                 set -euo pipefail
 
-                echo "Moving"
-
                 cd "$(terraformWorkingDirectory)"
-
-                echo "Fmt - check "
-
                 terraform fmt -check -recursive
-
-                echo "Initialise backend"
 
                 terraform init -input=false \
                   -backend-config="resource_group_name=$(backendResourceGroup)" \
@@ -114,10 +107,6 @@ stages:
               TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
               TF_VAR_administrators: $(administrators)
               TF_VAR_workspace_admins: $(workspace_admins)
-              TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
-              TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
-              TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
-              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connectionId)
 
   - stage: Plan
     displayName: 'Plan Terraform'
@@ -172,10 +161,6 @@ stages:
               TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
               TF_VAR_administrators: $(administrators)
               TF_VAR_workspace_admins: $(workspace_admins)
-              TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
-              TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
-              TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
-              TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connectionId)
 
           - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
             artifact: 'terraform-plan'
@@ -241,7 +226,3 @@ stages:
                     TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
                     TF_VAR_administrators: $(administrators)
                     TF_VAR_workspace_admins: $(workspace_admins)
-                    TF_VAR_adls_shortcut_name: $(adls_shortcut_name)
-                    TF_VAR_adls_shortcut_location: $(adls_shortcut_location)
-                    TF_VAR_adls_shortcut_subpath: $(adls_shortcut_subpath)
-                    TF_VAR_adls_shortcut_connection_id: $(adls_shortcut_connectionId)

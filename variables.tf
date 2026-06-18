@@ -67,29 +67,3 @@ variable "client_secret" {
   default     = null
   sensitive   = true
 }
-
-# --- ADLS Gen2 OneLake shortcut on the Bronze lakehouse (optional) ---
-
-variable "adls_shortcut_name" {
-  description = "Name of the ADLS Gen2 shortcut to create in the Bronze lakehouse. Leave empty to skip."
-  type        = string
-  default     = ""
-}
-
-variable "adls_shortcut_location" {
-  description = "ADLS Gen2 endpoint, e.g. https://<account>.dfs.core.windows.net."
-  type        = string
-  default     = ""
-}
-
-variable "adls_shortcut_subpath" {
-  description = "Container and optional subfolder, e.g. mycontainer/mysubfolder."
-  type        = string
-  default     = ""
-}
-
-variable "adls_shortcut_connection_id" {
-  description = "Fabric cloud connection GUID bound to the ADLS Gen2 shortcut."
-  type        = string
-  default     = ""
-}
