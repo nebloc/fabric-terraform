@@ -18,7 +18,7 @@ variable "subscription_id" {
   type        = string
 }
 
-variable "administrators" {
+variable "capacity_administrators" {
   description = "Array list of capacity admin emails"
   type        = list(string)
 }

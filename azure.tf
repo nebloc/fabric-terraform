@@ -36,7 +36,7 @@ resource "azapi_resource" "capacity" {
     }
     properties = {
       administration = {
-        members = concat([var.enterprise_object_id], var.administrators)
+        members = concat([var.enterprise_object_id], var.capacity_administrators)
       }
     }
   }

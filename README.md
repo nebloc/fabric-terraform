@@ -33,7 +33,7 @@ terraform output -json lakehouse_ids | jq -r '.dev'
 
 ## Prerequisites
 
-- Terraform `>= 1.8, < 2.0`.
+- Terraform `>= 1.11, < 2.0`.
 - Providers (auto-installed by `terraform init`):
   - `microsoft/fabric ~> 1.11`
   - `Azure/azapi ~> 2.10`
@@ -46,10 +46,21 @@ terraform output -json lakehouse_ids | jq -r '.dev'
   - `enterprise_object_id` — the **Object ID of the Enterprise Application** (service principal), *not* the app registration object id. This is what gets assigned as a Fabric capacity admin.
 - An **Entra ID security group** containing your service principal, added to the Fabric tenant setting **"Service principals can use Fabric APIs"** (and the related workspace/admin API settings if you don't already allow all SPNs). Without this, the Fabric provider cannot create workspaces or items even with correct Azure RBAC.
 - The UPNs you list in `workspace_admins` and `administrators` must exist in the same tenant.
+- A **Storage Account** configured and authorization for blob contributor to store Terraform state. If developing and running locally then remove the backend configuration from [providers.tf](./provider.tf).
+- A **Key Vault** containing the secrets for the Service Principal.
+- The **Terraform Plugin for Azure Devops** found here (#TODO: Add link)
 
 ## Required variables
 
+### Local 
+
 Set these in `terraform.tfvars` (see [variables.tf](variables.tf) for the full list):
+
+### Devops
+
+Set these as pipeline variables, maintaining the secrets for SPN authentication in the Key Vault linked with a variable group.
+
+### Variables 
 
 | Variable | Purpose |
 |---|---|
@@ -63,6 +74,8 @@ Set these in `terraform.tfvars` (see [variables.tf](variables.tf) for the full l
 | `administrators` | UPNs to add as capacity admins (alongside the SPN) |
 | `workspace_admins` | UPNs to add as workspace admins on every env |
 | `client_id` / `client_secret` / `enterprise_object_id` | SPN credentials and EA object id |
+
+> Within the context of Azure Devops, clientId, clientSecret, enterpriseObjectId, tenantId and subscriptionId will be loaded from a Variable Group. These should be stored in Key Vault.
 
 ## Minimum permissions for the service principal
 

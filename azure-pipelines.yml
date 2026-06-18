@@ -45,14 +45,14 @@ variables:
     value: 'fabriccicdlab'
   - name: capacity_name
     value: 'fabriccicdlab'
+  - name: capacity_administrators
+    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
   - name: location
     value: 'westus3'
   - name: fabric_tier
     value: 'F8'
   - name: workspace_name_prefix
     value: 'Fabric_CICD_Lab'
-  - name: administrators
-    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
   - name: workspace_admins
     value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
 
@@ -105,7 +105,7 @@ stages:
               TF_VAR_location: $(location)
               TF_VAR_fabric_tier: $(fabric_tier)
               TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-              TF_VAR_administrators: $(administrators)
+              TF_VAR_capacity_administrators: $(capacity_administrators)
               TF_VAR_workspace_admins: $(workspace_admins)
 
   - stage: Plan
@@ -159,7 +159,7 @@ stages:
               TF_VAR_location: $(location)
               TF_VAR_fabric_tier: $(fabric_tier)
               TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-              TF_VAR_administrators: $(administrators)
+              TF_VAR_capacity_administrators: $(capacity_administrators)
               TF_VAR_workspace_admins: $(workspace_admins)
 
           - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
@@ -224,5 +224,5 @@ stages:
                     TF_VAR_location: $(location)
                     TF_VAR_fabric_tier: $(fabric_tier)
                     TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-                    TF_VAR_administrators: $(administrators)
+                    TF_VAR_capacity_administrators: $(capacity_administrators)
                     TF_VAR_workspace_admins: $(workspace_admins)
