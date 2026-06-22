@@ -22,7 +22,9 @@ pool:
 
 variables:
   # ---- Secrets + auth (service principal). Define these in the variable group. ----
-  - group: fabric-terraform
+  - group: spn-settings
+  - group: backend-settings
+  - group: terraform-settings
 
   # ---- Pipeline / tooling config ----
   - name: terraformVersion
@@ -31,33 +33,6 @@ variables:
     value: '$(System.DefaultWorkingDirectory)'
   - name: environmentName
     value: 'fabric'
-
-  # ---- Terraform state backend (Azure Storage) ----
-  - name: backendResourceGroup
-    value: 'fabriccicdlab'
-  - name: backendStorageAccount
-    value: 'becolemandataplatform'
-  - name: backendContainer
-    value: 'tfstate'
-  - name: backendKey
-    value: 'prod.terraform.tfstate'
-
-  # ---- Terraform root-module input variables (non-secret). ----
-  # Lists must be JSON so they bind to Terraform list(string) variables.
-  - name: resource_group_name
-    value: 'fabriccicdlab'
-  - name: capacity_name
-    value: 'fabriccicdlab'
-  - name: location
-    value: 'westus3'
-  - name: fabric_tier
-    value: 'F2'
-  - name: workspace_name_prefix
-    value: 'Fabric_CICD_Lab'
-  - name: administrators
-    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
-  - name: workspace_admins
-    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
 
 stages:
   - stage: Validate
