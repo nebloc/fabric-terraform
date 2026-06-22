@@ -25,22 +25,15 @@ terraform {
 }
 
 # Configure the Microsoft Fabric Terraform Provider.
+# Authenticates via FABRIC_TENANT_ID, FABRIC_CLIENT_ID, FABRIC_CLIENT_SECRET env vars.
 provider "fabric" {
-  tenant_id     = var.tenant_id
-  client_id     = var.client_id
-  client_secret = var.client_secret
-  preview       = true
+  preview = true
 }
 
 # Configure the Azure Resource Manager provider for creating the resource group and fabric capacity.
-provider "azapi" {
-  tenant_id       = var.tenant_id
-  subscription_id = var.subscription_id
-  client_id       = var.client_id
-  client_secret   = var.client_secret
-}
+# Authenticates via ARM_TENANT_ID, ARM_SUBSCRIPTION_ID, ARM_CLIENT_ID, ARM_CLIENT_SECRET env vars.
+provider "azapi" {}
 
 # Configure the Azure AD provider to retrieve user object ids for workspace role assignments.
-provider "azuread" {
-  tenant_id = var.tenant_id
-}
+# Authenticates via ARM_TENANT_ID, ARM_CLIENT_ID, ARM_CLIENT_SECRET env vars.
+provider "azuread" {}

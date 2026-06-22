@@ -48,7 +48,7 @@ terraform output -json lakehouse_ids | jq -r '.dev'
 - The UPNs you list in `workspace_admins` and `administrators` must exist in the same tenant.
 - A **Storage Account** configured and authorization for blob contributor to store Terraform state. If developing and running locally then remove the backend configuration from [providers.tf](./provider.tf).
 - A **Key Vault** containing the secrets for the Service Principal.
-- The **Terraform Plugin for Azure Devops** found here (#TODO: Add link)
+- The **Devlabs Terraform Plugin for Azure Devops** found on the [Devops Marketplace](https://marketplace.visualstudio.com/acquisition?itemName=ms-devlabs.custom-terraform-tasks)
 
 ## Required variables
 
