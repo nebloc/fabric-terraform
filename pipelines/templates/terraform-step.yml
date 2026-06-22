@@ -63,5 +63,5 @@ steps:
       TF_VAR_location: $(location)
       TF_VAR_fabric_tier: $(fabric_tier)
       TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-      TF_VAR_administrators: $(administrators)
+      TF_VAR_capacity_administrators: $(administrators)
       TF_VAR_workspace_admins: $(workspace_admins)
