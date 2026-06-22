@@ -8,8 +8,11 @@
 # Secrets MUST live in a variable group (mark client_secret as secret); they are
 # NOT committed here. Create a variable group named `fabric-terraform` (or change
 # the name below) containing at least:
-#   tenantId, subscriptionId, clientId, client_secret, enterpriseObjectId
+#   tenantId, subscriptionId, clientId, clientSecret, enterpriseObjectId
 # Non-secret values can live in the same group or as the inline defaults below.
+#
+# Each terraform step is rendered via pipelines/templates/terraform-step.yml so
+# the ARM_* / TF_VAR_* env block is defined exactly once.
 
 trigger:
   - main
@@ -30,11 +33,10 @@ variables:
     value: 'fabric'
 
   # ---- Terraform state backend (Azure Storage) ----
-  # Override these at queue time or in a variable group to point at your own state store.
   - name: backendResourceGroup
-    value: 'my-terraform-rg'
+    value: 'fabriccicdlab'
   - name: backendStorageAccount
-    value: 'mytfstatestorage'
+    value: 'becolemandataplatform'
   - name: backendContainer
     value: 'tfstate'
   - name: backendKey
@@ -42,21 +44,20 @@ variables:
 
   # ---- Terraform root-module input variables (non-secret). ----
   # Lists must be JSON so they bind to Terraform list(string) variables.
-  # Override these at queue time or in a variable group for your environment.
   - name: resource_group_name
-    value: 'my-fabric-rg'
+    value: 'fabriccicdlab'
   - name: capacity_name
-    value: 'my-fabric-capacity'
-  - name: capacity_administrators
-    value: '["admin@example.onmicrosoft.com"]'
+    value: 'fabriccicdlab'
   - name: location
-    value: 'uksouth'
+    value: 'westus3'
   - name: fabric_tier
-    value: 'F8'
+    value: 'F2'
   - name: workspace_name_prefix
-    value: 'My_Fabric_Lab'
+    value: 'Fabric_CICD_Lab'
+  - name: administrators
+    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
   - name: workspace_admins
-    value: '["user@example.onmicrosoft.com"]'
+    value: '["becoleman@MngEnvMCAP622220.onmicrosoft.com"]'
 
 stages:
   - stage: Validate
@@ -72,43 +73,12 @@ stages:
             inputs:
               terraformVersion: '$(terraformVersion)'
 
-          - task: Bash@3
-            displayName: 'Terraform fmt and validate'
-            inputs:
-              targetType: 'inline'
+          - template: pipelines/templates/terraform-step.yml
+            parameters:
+              displayName: 'Terraform fmt and validate'
               script: |
-                set -euo pipefail
-
-                cd "$(terraformWorkingDirectory)"
                 terraform fmt -check -recursive
-
-                terraform init -input=false \
-                  -backend-config="resource_group_name=$(backendResourceGroup)" \
-                  -backend-config="storage_account_name=$(backendStorageAccount)" \
-                  -backend-config="container_name=$(backendContainer)" \
-                  -backend-config="key=$(backendKey)"
                 terraform validate
-            env:
-              TF_IN_AUTOMATION: 'true'
-              # --- Service principal auth (backend storage + ARM/azapi) ---
-              ARM_USE_AZUREAD: 'true'
-              ARM_TENANT_ID: $(tenantId)
-              ARM_SUBSCRIPTION_ID: $(subscriptionId)
-              ARM_CLIENT_ID: $(clientId)
-              ARM_CLIENT_SECRET: $(clientSecret)
-              # --- Terraform input variables ---
-              TF_VAR_tenant_id: $(tenantId)
-              TF_VAR_subscription_id: $(subscriptionId)
-              TF_VAR_client_id: $(clientId)
-              TF_VAR_client_secret: $(clientSecret)
-              TF_VAR_enterprise_object_id: $(enterpriseObjectId)
-              TF_VAR_resource_group_name: $(resource_group_name)
-              TF_VAR_capacity_name: $(capacity_name)
-              TF_VAR_location: $(location)
-              TF_VAR_fabric_tier: $(fabric_tier)
-              TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-              TF_VAR_capacity_administrators: $(capacity_administrators)
-              TF_VAR_workspace_admins: $(workspace_admins)
 
   - stage: Plan
     displayName: 'Plan Terraform'
@@ -124,45 +94,16 @@ stages:
             inputs:
               terraformVersion: '$(terraformVersion)'
 
-          - task: Bash@3
-            displayName: 'Terraform plan'
-            inputs:
-              targetType: 'inline'
+          - template: pipelines/templates/terraform-step.yml
+            parameters:
+              displayName: 'Terraform plan'
               script: |
-                set -euo pipefail
-
-                cd "$(terraformWorkingDirectory)"
-
-                terraform init -input=false \
-                  -backend-config="resource_group_name=$(backendResourceGroup)" \
-                  -backend-config="storage_account_name=$(backendStorageAccount)" \
-                  -backend-config="container_name=$(backendContainer)" \
-                  -backend-config="key=$(backendKey)"
                 terraform plan -input=false -lock-timeout=300s -out=tfplan
                 terraform show -no-color tfplan > tfplan.txt
 
                 mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
                 cp tfplan "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
                 cp tfplan.txt "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
-            env:
-              TF_IN_AUTOMATION: 'true'
-              ARM_USE_AZUREAD: 'true'
-              ARM_TENANT_ID: $(tenantId)
-              ARM_SUBSCRIPTION_ID: $(subscriptionId)
-              ARM_CLIENT_ID: $(clientId)
-              ARM_CLIENT_SECRET: $(clientSecret)
-              TF_VAR_tenant_id: $(tenantId)
-              TF_VAR_subscription_id: $(subscriptionId)
-              TF_VAR_client_id: $(clientId)
-              TF_VAR_client_secret: $(clientSecret)
-              TF_VAR_enterprise_object_id: $(enterpriseObjectId)
-              TF_VAR_resource_group_name: $(resource_group_name)
-              TF_VAR_capacity_name: $(capacity_name)
-              TF_VAR_location: $(location)
-              TF_VAR_fabric_tier: $(fabric_tier)
-              TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-              TF_VAR_capacity_administrators: $(capacity_administrators)
-              TF_VAR_workspace_admins: $(workspace_admins)
 
           - publish: '$(Build.ArtifactStagingDirectory)/terraform-plan'
             artifact: 'terraform-plan'
@@ -194,37 +135,8 @@ stages:
                   inputs:
                     terraformVersion: '$(terraformVersion)'
 
-                - task: Bash@3
-                  displayName: 'Terraform apply'
-                  inputs:
-                    targetType: 'inline'
+                - template: pipelines/templates/terraform-step.yml
+                  parameters:
+                    displayName: 'Terraform apply'
                     script: |
-                      set -euo pipefail
-
-                      cd "$(terraformWorkingDirectory)"
-
-                      terraform init -input=false \
-                        -backend-config="resource_group_name=$(backendResourceGroup)" \
-                        -backend-config="storage_account_name=$(backendStorageAccount)" \
-                        -backend-config="container_name=$(backendContainer)" \
-                        -backend-config="key=$(backendKey)"
                       terraform apply -input=false -lock-timeout=300s "$(Pipeline.Workspace)/terraform-plan/tfplan"
-                  env:
-                    TF_IN_AUTOMATION: 'true'
-                    ARM_USE_AZUREAD: 'true'
-                    ARM_TENANT_ID: $(tenantId)
-                    ARM_SUBSCRIPTION_ID: $(subscriptionId)
-                    ARM_CLIENT_ID: $(clientId)
-                    ARM_CLIENT_SECRET: $(clientSecret)
-                    TF_VAR_tenant_id: $(tenantId)
-                    TF_VAR_subscription_id: $(subscriptionId)
-                    TF_VAR_client_id: $(clientId)
-                    TF_VAR_client_secret: $(clientSecret)
-                    TF_VAR_enterprise_object_id: $(enterpriseObjectId)
-                    TF_VAR_resource_group_name: $(resource_group_name)
-                    TF_VAR_capacity_name: $(capacity_name)
-                    TF_VAR_location: $(location)
-                    TF_VAR_fabric_tier: $(fabric_tier)
-                    TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-                    TF_VAR_capacity_administrators: $(capacity_administrators)
-                    TF_VAR_workspace_admins: $(workspace_admins)

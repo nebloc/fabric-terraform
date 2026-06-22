@@ -1,0 +1,63 @@
+# Step template: runs `terraform init` (against the configured backend) and
+# then executes the caller-supplied script with every ARM_* / TF_VAR_* env var
+# the root module needs.
+#
+# Inputs (parameters):
+#   displayName - friendly name for the Bash@3 task
+#   script      - shell snippet executed after `terraform init`. Runs with
+#                 `set -euo pipefail` and `cwd = $(terraformWorkingDirectory)`.
+#
+# Required pipeline variables (typically from the `fabric-terraform` variable
+# group plus inline pipeline vars):
+#   backendResourceGroup, backendStorageAccount, backendContainer, backendKey
+#   terraformWorkingDirectory
+#   tenantId, subscriptionId, clientId, clientSecret, enterpriseObjectId
+#   resource_group_name, capacity_name, location, fabric_tier,
+#   workspace_name_prefix, administrators, workspace_admins
+#   adls_shortcut_name, adls_shortcut_location, adls_shortcut_subpath,
+#   adls_shortcut_connectionId
+
+parameters:
+  - name: displayName
+    type: string
+  - name: script
+    type: string
+
+steps:
+  - task: Bash@3
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      targetType: 'inline'
+      script: |
+        set -euo pipefail
+
+        cd "$(terraformWorkingDirectory)"
+
+        terraform init -input=false \
+          -backend-config="resource_group_name=$(backendResourceGroup)" \
+          -backend-config="storage_account_name=$(backendStorageAccount)" \
+          -backend-config="container_name=$(backendContainer)" \
+          -backend-config="key=$(backendKey)"
+
+        ${{ parameters.script }}
+    env:
+      TF_IN_AUTOMATION: 'true'
+      # --- Service principal auth (backend storage + ARM/azapi) ---
+      ARM_USE_AZUREAD: 'true'
+      ARM_TENANT_ID: $(tenantId)
+      ARM_SUBSCRIPTION_ID: $(subscriptionId)
+      ARM_CLIENT_ID: $(clientId)
+      ARM_CLIENT_SECRET: $(clientSecret)
+      # --- Terraform input variables ---
+      TF_VAR_tenant_id: $(tenantId)
+      TF_VAR_subscription_id: $(subscriptionId)
+      TF_VAR_client_id: $(clientId)
+      TF_VAR_client_secret: $(clientSecret)
+      TF_VAR_enterprise_object_id: $(enterpriseObjectId)
+      TF_VAR_resource_group_name: $(resource_group_name)
+      TF_VAR_capacity_name: $(capacity_name)
+      TF_VAR_location: $(location)
+      TF_VAR_fabric_tier: $(fabric_tier)
+      TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
+      TF_VAR_administrators: $(administrators)
+      TF_VAR_workspace_admins: $(workspace_admins)

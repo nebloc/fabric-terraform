@@ -1,15 +1,12 @@
-# Terraform CI/CD for the Fabric CI/CD lab.
+# Manual destroy pipeline for the Fabric CI/CD lab.
 #
-# Runs in Azure DevOps and authenticates to Azure (state backend storage account,
-# ARM/azapi, Entra ID and Microsoft Fabric) with a single Entra ID service
-# principal. Every value the Terraform configuration needs - backend storage
-# config and all root-module input variables - is supplied from this pipeline.
+# Triggers manually (`trigger: none`) and tears down everything the apply
+# pipeline created. Uses the same Entra ID service principal and the shared
+# pipelines/templates/terraform-step.yml so the ARM_* / TF_VAR_* env block is
+# defined exactly once.
 #
-# Secrets MUST live in a variable group (mark client_secret as secret); they are
-# NOT committed here. Create a variable group named `fabric-terraform` (or change
-# the name below) containing at least:
-#   tenantId, subscriptionId, clientId, client_secret, enterpriseObjectId
-# Non-secret values can live in the same group or as the inline defaults below.
+# Secrets must live in the `fabric-terraform` variable group:
+#   tenantId, subscriptionId, clientId, clientSecret, enterpriseObjectId
 
 trigger: none
 
@@ -69,39 +66,8 @@ stages:
             inputs:
               terraformVersion: '$(terraformVersion)'
 
-          - task: Bash@3
-            displayName: 'Terraform Destroy'
-            inputs:
-              targetType: 'inline'
+          - template: pipelines/templates/terraform-step.yml
+            parameters:
+              displayName: 'Terraform destroy'
               script: |
-                set -euo pipefail
-
-                cd "$(terraformWorkingDirectory)"
-
-                terraform init -input=false \
-                  -backend-config="resource_group_name=$(backendResourceGroup)" \
-                  -backend-config="storage_account_name=$(backendStorageAccount)" \
-                  -backend-config="container_name=$(backendContainer)" \
-                  -backend-config="key=$(backendKey)"
                 terraform destroy -auto-approve -lock-timeout=300s
-            env:
-              TF_IN_AUTOMATION: 'true'
-              # --- Service principal auth (backend storage + ARM/azapi) ---
-              ARM_USE_AZUREAD: 'true'
-              ARM_TENANT_ID: $(tenantId)
-              ARM_SUBSCRIPTION_ID: $(subscriptionId)
-              ARM_CLIENT_ID: $(clientId)
-              ARM_CLIENT_SECRET: $(clientSecret)
-              # --- Terraform input variables ---
-              TF_VAR_tenant_id: $(tenantId)
-              TF_VAR_subscription_id: $(subscriptionId)
-              TF_VAR_client_id: $(clientId)
-              TF_VAR_client_secret: $(clientSecret)
-              TF_VAR_enterprise_object_id: $(enterpriseObjectId)
-              TF_VAR_resource_group_name: $(resource_group_name)
-              TF_VAR_capacity_name: $(capacity_name)
-              TF_VAR_location: $(location)
-              TF_VAR_fabric_tier: $(fabric_tier)
-              TF_VAR_workspace_name_prefix: $(workspace_name_prefix)
-              TF_VAR_administrators: $(administrators)
-              TF_VAR_workspace_admins: $(workspace_admins)
