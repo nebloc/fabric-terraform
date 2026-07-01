@@ -70,6 +70,9 @@ resource "fabric_connection" "copyjob" {
       client_secret_wo         = var.client_secret
       client_secret_wo_version = 1 # Need to bump this if the secret is rotated
       tenant_id                = var.tenant_id
+      # If you have an Azure Key Vault Reference already created, you can change this to be 
+      # service_principal_secret_reference instead of client_secret_wo and client_secret_wo_version
+      # See here for more details: https://registry.terraform.io/providers/microsoft/fabric/latest/docs/resources/connection#nested-schema-for-credential_details
     }
   }
 }
@@ -84,8 +87,6 @@ resource "fabric_connection_role_assignment" "copyjob_admins" {
   }
   role = "Owner"
 }
-
-# TODO: Use Key Vault to store the client secret and retrieve it in the fabric_connection resource above.
 
 output "workspace_ids" {
   description = "Map of environment name to workspace id."
