@@ -66,4 +66,5 @@ variable "client_secret" {
   type        = string
   default     = null
   sensitive   = true
+  ephemeral   = true
 }
