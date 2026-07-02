@@ -2,6 +2,93 @@
 
 Provisions the Azure + Microsoft Fabric resources needed to run a multi-environment (dev / test / prod) Fabric CI/CD lab.
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "Azure DevOps Pipeline"
+        direction LR
+        Validate["Validate<br/>(fmt + validate)"]
+        Plan["Plan<br/>(terraform plan)"]
+        Apply["Apply<br/>(terraform apply)"]
+        Validate --> Plan --> Apply
+    end
+
+    subgraph azure["Azure (existing)"]
+        State["storage account<br/>(tfstate backend)"]
+        KV["Azure Key Vault"]
+    end
+
+    subgraph azure_new["Azure (created)"]
+        rg["resource group"]
+        cap["fabric capacity"]
+        rg --> cap
+    end
+
+    subgraph fabric["Microsoft Fabric"]
+        direction TB
+        CopyJob["CopyJob Connection"]
+
+        subgraph "dev"
+            WS_Dev["Workspace<br/>(prefix-dev)"]
+            LH_Dev["Lakehouse"]
+            LH_SC_Dev["Lakehouse<br/>(shortcut)"]
+            WH_Dev["Warehouse"]
+            WS_Dev --> LH_Dev
+            WS_Dev --> LH_SC_Dev
+            WS_Dev --> WH_Dev
+        end
+
+        subgraph "test"
+            WS_Test["Workspace<br/>(prefix-test)"]
+            LH_Test["Lakehouse"]
+            LH_SC_Test["Lakehouse<br/>(shortcut)"]
+            WH_Test["Warehouse"]
+            WS_Test --> LH_Test
+            WS_Test --> LH_SC_Test
+            WS_Test --> WH_Test
+        end
+
+        subgraph "prod"
+            WS_Prod["Workspace<br/>(prefix-prod)"]
+            LH_Prod["Lakehouse"]
+            LH_SC_Prod["Lakehouse<br/>(shortcut)"]
+            WH_Prod["Warehouse"]
+            WS_Prod --> LH_Prod
+            WS_Prod --> LH_SC_Prod
+            WS_Prod --> WH_Prod
+        end
+
+        subgraph "feature"
+            WS_Feat["Workspace<br/>(prefix-feature)"]
+            LH_Feat["Lakehouse"]
+            LH_SC_Feat["Lakehouse<br/>(shortcut)"]
+            WH_Feat["Warehouse"]
+            WS_Feat --> LH_Feat
+            WS_Feat --> LH_SC_Feat
+            WS_Feat --> WH_Feat
+        end
+    end
+
+    subgraph "Entra ID (existing)"
+        SPN["Service Principal"]
+        Users["Workspace Admin Users"]
+    end
+
+    Apply --> rg
+    Apply --> CopyJob
+    Apply -->|"Create each env"| fabric
+    Plan -.->|"state"| State
+    Apply -.->|"state"| State
+    cap -.->|"assigned to"| WS_Dev
+    cap -.->|"assigned to"| WS_Test
+    cap -.->|"assigned to"| WS_Prod
+    cap -.->|"assigned to"| WS_Feat
+    KV -->|"authenticates"| Apply
+    SPN -->|"Stored"| KV
+    Users -.->|"role assignment"| fabric
+```
+
 ## What it creates
 
 Top-level (root module):
@@ -33,6 +120,7 @@ terraform output -json lakehouse_ids | jq -r '.dev'
 
 ## Prerequisites
 
+- The **Devlabs Terraform Plugin for Azure Devops** found on the [Devops Marketplace](https://marketplace.visualstudio.com/acquisition?itemName=ms-devlabs.custom-terraform-tasks)
 - Terraform `>= 1.11, < 2.0`.
 - Providers (auto-installed by `terraform init`):
   - `microsoft/fabric ~> 1.11`
@@ -48,7 +136,6 @@ terraform output -json lakehouse_ids | jq -r '.dev'
 - The UPNs you list in `workspace_admins` and `administrators` must exist in the same tenant.
 - A **Storage Account** configured and authorization for blob contributor to store Terraform state. If developing and running locally then remove the backend configuration from [providers.tf](./provider.tf).
 - A **Key Vault** containing the secrets for the Service Principal.
-- The **Devlabs Terraform Plugin for Azure Devops** found on the [Devops Marketplace](https://marketplace.visualstudio.com/acquisition?itemName=ms-devlabs.custom-terraform-tasks)
 
 ## Required variables
 
@@ -62,18 +149,21 @@ Set these as pipeline variables, maintaining the secrets for SPN authentication 
 
 ### Variables 
 
-| Variable | Purpose |
-|---|---|
-| `tenant_id` | Entra tenant id |
-| `subscription_id` | Subscription that hosts the resource group + capacity |
-| `resource_group_name` | Name of the RG to create |
-| `location` | Azure region (e.g. `westus3`, `uksouth`) |
-| `capacity_name` | Name of the Fabric capacity to create |
-| `fabric_tier` | Capacity SKU, default `F2` |
-| `workspace_name_prefix` | Prefix for the per-env workspace names |
-| `administrators` | UPNs to add as capacity admins (alongside the SPN) |
-| `workspace_admins` | UPNs to add as workspace admins on every env |
-| `client_id` / `client_secret` / `enterprise_object_id` | SPN credentials and EA object id |
+| Group | Variable | Purpose |
+|---|---|---|
+| spn-settings | `tenant_id` / `client_id` / `client_secret` / `enterprise_object_id` | SPN credentials and EA object id |
+| spn-settings | `subscription_id` | Subscription that hosts the resource group + capacity |
+| terraform-settings | `resource_group_name` | Name of the RG to create |
+| terraform-settings | `location` | Azure region (e.g. `westus3`, `uksouth`) |
+| terraform-settings | `capacity_name` | Name of the Fabric capacity to create |
+| terraform-settings | `fabric_tier` | Capacity SKU, default `F2` |
+| terraform-settings | `workspace_name_prefix` | Prefix for the per-env workspace names |
+| terraform-settings | `capacity_administrators` | UPNs to add as capacity admins (alongside the SPN) |
+| terraform-settings | `workspace_admins`  | UPNs to add as workspace admins on every env |
+| backend-settings | `backendStorageAccount` | Storage Account Name to hold State |
+| backend-settings | `backendContainer` | Storage Account Blob Container with State |
+| backend-settings | `backendResourceGroup` | Resource Group of Storage Container |
+| backend-settings | `backendKey` | File to keep the state |
 
 > Within the context of Azure Devops, clientId, clientSecret, enterpriseObjectId, tenantId and subscriptionId will be loaded from a Variable Group. These should be stored in Key Vault.
 
@@ -100,6 +190,10 @@ The provider only does a `data "azuread_users"` lookup by UPN. Either:
 - Membership in a directory role like **Directory Readers**.
 
 No write permissions in Entra are required.
+
+### Storage Account
+
+The state file for the terraform environment is stored inside a Storage Account. SPN will need access to read and write the state.
 
 ### Microsoft Fabric (`fabric` provider)
 
@@ -132,3 +226,7 @@ terraform apply -target='module.workspace["dev"]'
 - `terraform.tfstate` is currently in the repo. For real use, configure a remote backend (e.g. Azure Storage) before running anything beyond a throwaway lab.
 - If you switch to an existing resource group, change `parent_id = resource.azapi_resource.resource_group.id` to `data.azapi_resource.resource_group.id` in [azure.tf](azure.tf) and uncomment the data block.
 - The Fabric provider's `preview = true` flag is required because some resources are still preview-gated.
+
+## Destroy
+
+If you want to delete the environment created by the Terraform script, there is a pipeline yml file that reuses the variable groups and CICD set up, but with a manual trigger to run `terraform destroy`

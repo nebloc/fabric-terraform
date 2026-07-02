@@ -80,6 +80,18 @@ resource "fabric_warehouse" "warehouse" {
   workspace_id = fabric_workspace.workspace.id
 }
 
+# Create a Fabric SQL Database for metadata driven pipelines
+resource "fabric_sql_database" "metadata" {
+  display_name = "MetadataSQLDB"
+  workspace_id = fabric_workspace.workspace.id
+}
+
+# Create a Fabric SQL Database for metadata driven pipelines
+resource "fabric_sql_database" "demo" {
+  display_name = "DemoFabricSQLDB"
+  workspace_id = fabric_workspace.workspace.id
+}
+
 # Outputs are used to retrieve the resource ids of the created resources, which can be used to reference these resources in other modules or for retrieving the resources after deployment.
 output "workspace_id" {
   value = fabric_workspace.workspace.id
@@ -89,4 +101,10 @@ output "lakehouse_id" {
 }
 output "warehouse_id" {
   value = fabric_warehouse.warehouse.id
+}
+output "metadatadb_id" {
+  value = fabric_sql_database.metadata.id
+}
+output "demodb_id" {
+  value = fabric_sql_database.demo.id
 }

@@ -107,3 +107,13 @@ output "copyjob_connection_id" {
   description = "The id of the CopyJob connection."
   value       = fabric_connection.copyjob.id
 }
+
+output "metadatadb_ids" {
+  description = "Map of environment name to metadata SQL DB id."
+  value       = { for env, mod in module.workspace : env => mod.metadatadb_id }
+}
+
+output "demodb_ids" {
+  description = "Map of environment name to demo SQL DB id."
+  value       = { for env, mod in module.workspace : env => mod.demodb_id }
+}
