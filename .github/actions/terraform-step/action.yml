@@ -1,0 +1,43 @@
+# Composite action: runs `terraform init` (against the configured backend) and
+# then executes the caller-supplied script.
+#
+# Mirrors pipelines/templates/terraform-step.yml from the Azure DevOps pipeline.
+#
+# All auth / backend / TF_VAR_* values are read from environment variables that
+# the calling workflow defines once at workflow level (see terraform.yml). This
+# keeps the per-job call sites down to just a `script`.
+#
+# Required env vars (set by the caller):
+#   Backend:  BACKEND_RESOURCE_GROUP, BACKEND_STORAGE_ACCOUNT,
+#             BACKEND_CONTAINER, BACKEND_KEY
+#   Auth:     ARM_* / FABRIC_* (service principal + Fabric)
+#   Inputs:   TF_VAR_* for every root-module variable
+
+name: 'Terraform step'
+description: 'Runs terraform init against the backend, then a caller-supplied script.'
+
+inputs:
+  script:
+    description: 'Shell snippet executed after terraform init.'
+    required: true
+  working-directory:
+    description: 'Directory to run terraform in.'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Terraform init and run script
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+
+        terraform init -input=false \
+          -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
+          -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
+          -backend-config="container_name=${BACKEND_CONTAINER}" \
+          -backend-config="key=${BACKEND_KEY}"
+
+        ${{ inputs.script }}
